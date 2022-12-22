@@ -1,11 +1,13 @@
 from __future__ import absolute_import
 from __future__ import unicode_literals
 
+import os
 import ssl
 import json
 import time
 import socket
 import logging
+import stat
 
 from ._compat import string_types, to_bytes, struct_l
 from .version import __version__
@@ -23,13 +25,11 @@ from .deflate_socket import DeflateSocket, DeflateEncoder
 
 logger = logging.getLogger(__name__)
 
-
 # states
 INIT = 'INIT'
 DISCONNECTED = 'DISCONNECTED'
 CONNECTING = 'CONNECTING'
 CONNECTED = 'CONNECTED'
-
 
 DEFAULT_USER_AGENT = 'pynsq/%s' % __version__
 
@@ -66,9 +66,7 @@ class AsyncConn(event.EventedMixin):
      * ``backoff``
      * ``resume``
 
-    :param host: the host to connect to
-
-    :param port: the post to connect to
+    :param addr: the host to connect to
 
     :param timeout: the timeout for read/write operations (in seconds)
 
@@ -121,10 +119,10 @@ class AsyncConn(event.EventedMixin):
     :param hostname: a string identifying the host where this client runs
         (default: ``<hostname>``)
     """
+
     def __init__(
             self,
-            host,
-            port,
+            addr,
             timeout=1.0,
             heartbeat_interval=30,
             requeue_delay=90,
@@ -140,8 +138,7 @@ class AsyncConn(event.EventedMixin):
             auth_secret=None,
             msg_timeout=None,
             hostname=None):
-        assert isinstance(host, string_types)
-        assert isinstance(port, int)
+        assert isinstance(addr, string_types)
         assert isinstance(timeout, float)
         assert isinstance(tls_options, (dict, None.__class__))
         assert isinstance(deflate_level, int)
@@ -154,8 +151,7 @@ class AsyncConn(event.EventedMixin):
         # auth_secret validated by to_bytes() below
 
         self.state = INIT
-        self.host = host
-        self.port = port
+        self.addr = addr
         self.timeout = timeout
         self.last_recv_timestamp = time.time()
         self.last_msg_timestamp = time.time()
@@ -203,7 +199,7 @@ class AsyncConn(event.EventedMixin):
         return str(self)
 
     def __str__(self):
-        return self.host + ':' + str(self.port)
+        return self.addr
 
     def connected(self):
         return self.state == CONNECTED
@@ -218,11 +214,15 @@ class AsyncConn(event.EventedMixin):
         if not self.closed():
             return
 
-        # Assume host is an ipv6 address if it has a colon.
-        if ':' in self.host:
-            self.socket = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+        if is_socket(self.addr):
+            self.socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         else:
-            self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            host, port = self.addr.split(':')
+            # Assume host is an ipv6 address if it has a colon.
+            if ':' in host:
+                self.socket = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+            else:
+                self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
         self.socket.settimeout(self.timeout)
         self.socket.setblocking(0)
@@ -235,7 +235,11 @@ class AsyncConn(event.EventedMixin):
         self.on(event.CONNECT, self._on_connect)
         self.on(event.DATA, self._on_data)
 
-        fut = self.stream.connect((self.host, self.port))
+        if is_socket(self.addr):
+            fut = self.stream.connect(self.addr)
+        else:
+            host, port = self.addr.split(':')
+            fut = self.stream.connect((host, int(port)))
         IOLoop.current().add_future(fut, self._connect_callback)
 
     def _connect_callback(self, fut):
@@ -302,7 +306,8 @@ class AsyncConn(event.EventedMixin):
         }
         opts.update(options or {})
 
-        fut = self.stream.start_tls(False, ssl_options=opts, server_hostname=self.host)
+        host, _ = self.addr.split(':')
+        fut = self.stream.start_tls(False, ssl_options=opts, server_hostname=host)
         self.stream = None
 
         def finish_upgrade_tls(fut):
@@ -547,3 +552,12 @@ class AsyncConn(event.EventedMixin):
                 conn=self,
                 error=protocol.SendError('failed to send TOUCH %s' % message.id, e),
             )
+
+
+def is_socket(file_name):
+    try:
+        s = os.lstat(file_name)
+    except OSError:
+        return False
+    else:
+        return stat.S_ISSOCK(s.st_mode)

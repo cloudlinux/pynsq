@@ -10,7 +10,7 @@ def nsq_reader():
 
 
 async def push_to_nsq():
-    producer = nsq.Writer(nsqd_tcp_addresses=['localhost:4150'])
+    producer = nsq.Writer(nsqd_tcp_addresses=['/var/run/nsqd.sock'])
     await asyncio.sleep(1) # very need or SendError: no open connections (None)
     
     producer.pub("nsq-test-writer", "test".encode()*100*1000, finish_pub)

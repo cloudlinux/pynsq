@@ -200,14 +200,12 @@ class Writer(Client):
 
     def connect(self):
         for addr in self.nsqd_tcp_addresses:
-            host, port = addr.split(':')
-            self.connect_to_nsqd(host, int(port))
+            self.connect_to_nsqd(addr)
 
-    def connect_to_nsqd(self, host, port):
-        assert isinstance(host, string_types)
-        assert isinstance(port, int)
+    def connect_to_nsqd(self, addr):
+        assert isinstance(addr, string_types)
 
-        conn = AsyncConn(host, port, **self.conn_kwargs)
+        conn = AsyncConn(addr, **self.conn_kwargs)
         conn.on('identify', self._on_connection_identify)
         conn.on('identify_response', self._on_connection_identify_response)
         conn.on('auth', self._on_connection_auth)
@@ -246,8 +244,7 @@ class Writer(Client):
 
         logger.warning('[%s] connection closed', conn.id)
         logger.info('[%s] attempting to reconnect in %0.2fs', conn.id, self.reconnect_interval)
-        reconnect_callback = functools.partial(self.connect_to_nsqd,
-                                               host=conn.host, port=conn.port)
+        reconnect_callback = functools.partial(self.connect_to_nsqd, addr=conn.addr)
         self.io_loop.call_later(self.reconnect_interval, reconnect_callback)
 
     def _finish_pub(self, conn, data, command, topic, msg):

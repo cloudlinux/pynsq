@@ -39,7 +39,7 @@ def get_conn(reader):
         instance = iostream.return_value
         instance.connect.return_value = Future()
         instance.read_bytes.return_value = Future()
-        conn = reader.connect_to_nsqd('localhost', _conn_port)
+        conn = reader.connect_to_nsqd("localhost:" + str(_conn_port))
     _conn_port += 1
     conn.trigger(event.READY, conn=conn)
     return conn

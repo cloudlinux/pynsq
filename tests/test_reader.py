@@ -67,7 +67,7 @@ class IntegrationBase(tornado.testing.AsyncTestCase):
                 continue
 
     def _send_messages(self, topic, count, body):
-        c = AsyncConn('127.0.0.1', 4150)
+        c = AsyncConn('127.0.0.1:4150')
         c.connect()
 
         def _on_ready(*args, **kwargs):
@@ -109,7 +109,7 @@ class ReaderIntegrationTest(IntegrationBase):
             **bad_options)
 
     def test_conn_identify(self):
-        c = AsyncConn('127.0.0.1', 4150)
+        c = AsyncConn('127.0.0.1:4150')
         c.on('identify_response', self.stop)
         c.connect()
         response = self.wait()
@@ -118,7 +118,7 @@ class ReaderIntegrationTest(IntegrationBase):
         assert isinstance(response['data'], dict)
 
     def test_conn_identify_options(self):
-        c = AsyncConn('127.0.0.1', 4150, **self.identify_options)
+        c = AsyncConn('127.0.0.1:4150', **self.identify_options)
         c.on('identify_response', self.stop)
         c.connect()
         response = self.wait()
@@ -129,7 +129,7 @@ class ReaderIntegrationTest(IntegrationBase):
         assert response['data']['tls_v1'] is True
 
     def test_conn_socket_upgrade(self):
-        c = AsyncConn('127.0.0.1', 4150, **self.identify_options)
+        c = AsyncConn('127.0.0.1:4150', **self.identify_options)
         c.on('ready', self.stop)
         c.connect()
         self.wait()
@@ -138,7 +138,7 @@ class ReaderIntegrationTest(IntegrationBase):
 
     def test_conn_subscribe(self):
         topic = 'test_conn_suscribe_%s' % time.time()
-        c = AsyncConn('127.0.0.1', 4150, **self.identify_options)
+        c = AsyncConn('127.0.0.1:4150', **self.identify_options)
 
         def _on_ready(*args, **kwargs):
             c.on('response', self.stop)
@@ -157,7 +157,7 @@ class ReaderIntegrationTest(IntegrationBase):
         topic = 'test_conn_suscribe_%s' % time.time()
         self._send_messages(topic, 5, b'sup')
 
-        c = AsyncConn('127.0.0.1', 4150, **self.identify_options)
+        c = AsyncConn('127.0.0.1:4150', **self.identify_options)
 
         def _on_message(*args, **kwargs):
             self.msg_count += 1
@@ -256,7 +256,7 @@ class DeflateReaderIntegrationTest(IntegrationBase):
                     '--tls-cert=%s/tests/cert.pem' % base_dir]
 
     def test_conn_identify_options(self):
-        c = AsyncConn('127.0.0.1', 4150, **self.identify_options)
+        c = AsyncConn('127.0.0.1:4150', **self.identify_options)
         c.on('identify_response', self.stop)
         c.connect()
         response = self.wait()
@@ -266,7 +266,7 @@ class DeflateReaderIntegrationTest(IntegrationBase):
         assert response['data']['deflate'] is True
 
     def test_conn_socket_upgrade(self):
-        c = AsyncConn('127.0.0.1', 4150, **self.identify_options)
+        c = AsyncConn('127.0.0.1:4150', **self.identify_options)
         c.on('ready', self.stop)
         c.connect()
         self.wait()
@@ -373,7 +373,7 @@ class ReaderAuthIntegrationTest(IntegrationBase):
         auth_srv = tornado.httpserver.HTTPServer(auth_app)
         auth_srv.add_socket(self.auth_sock)
 
-        c = AsyncConn('127.0.0.1', 4150, **self.identify_options)
+        c = AsyncConn('127.0.0.1:4150', **self.identify_options)
 
         def _on_ready(*args, **kwargs):
             c.on('response', self.stop)
