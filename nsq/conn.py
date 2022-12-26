@@ -306,7 +306,9 @@ class AsyncConn(event.EventedMixin):
         }
         opts.update(options or {})
 
-        host, _ = self.addr.split(':')
+        host = ""
+        if not is_socket(self.addr):
+            host, _ = self.addr.split(':')
         fut = self.stream.start_tls(False, ssl_options=opts, server_hostname=host)
         self.stream = None
 

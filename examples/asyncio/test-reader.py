@@ -16,7 +16,7 @@ async def reader_from__nsq():
     reader = nsq.Reader(
             topic="nsq-test-writer", channel="test-ch", message_handler=message_handler,
             lookupd_connect_timeout=10, requeue_delay=10, 
-            nsqd_tcp_addresses=['/var/run/nsqd.sock'], max_in_flight=5, snappy=False
+            nsqd_tcp_addresses=['/var/run/nsqd.sock'], max_in_flight=5, snappy=True
     )
 
 if __name__ == "__main__":
