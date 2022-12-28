@@ -237,8 +237,7 @@ class Reader(Client):
         logger.info('[%s] starting reader for %s/%s...', self.name, self.topic, self.channel)
 
         for addr in self.nsqd_tcp_addresses:
-            address, port = addr.split(':')
-            self.connect_to_nsqd(address, int(port))
+            self.connect_to_nsqd(addr)
 
         self.redist_periodic = PeriodicCallback(
             self._redistribute_rdy_state,
@@ -469,17 +468,15 @@ class Reader(Client):
         if conn.send_rdy(value):
             self.total_rdy = new_rdy
 
-    def connect_to_nsqd(self, host, port):
+    def connect_to_nsqd(self, addr):
         """
         Adds a connection to ``nsqd`` at the specified address.
 
-        :param host: the address to connect to
-        :param port: the port to connect to
+        :param addr: the address to connect to
         """
-        assert isinstance(host, string_types)
-        assert isinstance(port, int)
+        assert isinstance(addr, string_types)
 
-        conn = AsyncConn(host, port, **self.conn_kwargs)
+        conn = AsyncConn(addr, **self.conn_kwargs)
         conn.on('identify', self._on_connection_identify)
         conn.on('identify_response', self._on_connection_identify_response)
         conn.on('auth', self._on_connection_auth)
@@ -568,8 +565,7 @@ class Reader(Client):
         if not self.lookupd_http_addresses:
             # automatically reconnect to nsqd addresses when not using lookupd
             logger.info('[%s:%s] attempting to reconnect in 15s', conn.id, self.name)
-            reconnect_callback = functools.partial(self.connect_to_nsqd,
-                                                   host=conn.host, port=conn.port)
+            reconnect_callback = functools.partial(self.connect_to_nsqd, conn.addr)
             self.io_loop.call_later(15, reconnect_callback)
 
     @tornado.gen.coroutine
@@ -617,7 +613,7 @@ class Reader(Client):
             # TODO: this can be dropped for 1.0
             address = producer.get('broadcast_address', producer.get('address'))
             assert address
-            self.connect_to_nsqd(address, producer['tcp_port'])
+            self.connect_to_nsqd(address + ":" + str(producer['tcp_port']))
 
     def set_max_in_flight(self, max_in_flight):
         """Dynamically adjust the reader max_in_flight. Set to 0 to immediately disable a Reader"""

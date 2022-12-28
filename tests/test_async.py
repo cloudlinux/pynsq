@@ -22,7 +22,7 @@ def f(*args, **kwargs):
 
 
 def _get_test_conn():
-    conn = AsyncConn('test', 4150)
+    conn = AsyncConn('test:4150')
     # now set the stream attribute, which is ordinarily set in conn.connect()
     conn.stream = create_autospec(IOStream)
     fut = Future()
@@ -48,7 +48,7 @@ def test_connect(mock_iostream, mock_socket):
     conn = _get_test_conn()
     conn.connect()
     conn.stream.set_close_callback.assert_called_once_with(conn._socket_close)
-    conn.stream.connect.assert_called_once_with((conn.host, conn.port))
+    conn.stream.connect.assert_called_once_with(conn.addr)
     assert conn.state == 'CONNECTING'
 
     # now ensure that we will bail if we were already in a connecting or connected state
